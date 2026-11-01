@@ -1,6 +1,6 @@
-# ADR-0001: Fail-closed, sensitivity-aware model routing
+# ADR 0001: Fail-closed, sensitivity-aware model routing
 
-**Status:** accepted
+Status: Accepted
 
 ## Context
 The service can talk to local models (inside the trust boundary) and external APIs. Requests may contain personal
@@ -15,6 +15,14 @@ Every request has an *effective* sensitivity (`public`, `internal`, `sensitive`;
 - `public` → sent as-is.
 - Each provider has its own circuit breaker; an open breaker is skipped instead of waited on.
 - Every attempt is recorded (`ok`, `error`, `timeout`, `circuit_open`, `skipped_sensitive`) and returned/metered.
+
+## Rejected alternatives
+- **A plain fallback chain** ("try the next provider"). Simple, and it is exactly how sensitive text reaches a cloud model
+  during an outage. Rejected because availability would be bought with confidentiality.
+- **Redaction only** for `internal` data. Placeholders that are not stable and reversible make the external model lose
+  who is who, and the answer cannot be put back together locally. Pseudonymisation keeps the mapping in the process.
+- **One breaker for all providers.** One failing provider would take down the healthy ones with it; each provider has
+  its own breaker, and an open one is skipped instead of waited on.
 
 ## Consequences
 - (+) A provider outage can degrade availability but not confidentiality.

@@ -1,6 +1,6 @@
-# ADR-0003: Partial HNSW index on a denormalised `approved` flag
+# ADR 0003: Partial HNSW index on a denormalised `approved` flag
 
-**Status:** accepted
+Status: Accepted
 
 ## Context
 Retrieval must only return chunks of `approved` documents. The natural schema keeps the status on `kb_documents`
@@ -15,6 +15,14 @@ fewer than *k* rows (or none) even though enough approved chunks exist.
 - Approving or rejecting a document updates `kb_documents.status` **and** `kb_chunks.approved` in one transaction, so
   the two can never disagree.
 - `UNIQUE (document_id, chunk_index)` and `UNIQUE (sha256)` protect integrity; `(status, created_at)` serves the curator's queue.
+
+## Rejected alternatives
+- **Keep the status on `kb_documents` and join at query time.** The approximate index returns its top candidates before
+  the join filters them, so a `LIMIT k` query can return fewer than *k* rows, or none, while enough approved chunks exist.
+- **Over-fetch and post-filter** (ask the index for many more than *k*). Hides the problem until the share of
+  quarantined chunks grows, and then fails the same way, only later.
+- **A second table holding only approved chunks.** Duplicates the vectors and turns approval into a data move; a flag
+  flipped in one transaction is cheaper and keeps one source of truth.
 
 ## Consequences
 - (+) Index size and recall depend on what is *retrievable*, not on everything ever ingested.

@@ -1,6 +1,6 @@
-# ADR-0002: Quarantine-by-default knowledge ingestion
+# ADR 0002: Quarantine-by-default knowledge ingestion
 
-**Status:** accepted
+Status: Accepted
 
 ## Context
 A RAG index is a trust boundary: whatever is retrievable ends up inside a prompt. Documents can contain credentials,
@@ -15,6 +15,14 @@ irrelevant noise, or text written to hijack the model (indirect prompt injection
 5. Retrieval is gated by an evidence policy (similarity threshold **and** minimum evidence count). Below it the
    pipeline answers `insufficient_evidence` and does not call the model.
 6. A generated answer must cite sources that were actually provided; otherwise it is replaced by an extractive answer.
+
+## Rejected alternatives
+- **Neutralise only the offending sentence** of a chunk. The rest of a poisoned passage keeps steering the model, so
+  the whole chunk is excluded and only its offsets are recorded.
+- **Auto-approve on ingest, filter at query time.** Every caller would have to remember the filter. The store enforces
+  that retrieval only sees `approved` documents, so a caller cannot forget it.
+- **Trust the generated answer's citations.** A model can cite what it was never given; the answer must cite sources
+  that were actually provided, otherwise it is replaced by an extractive one.
 
 ## Consequences
 - (+) Poisoned or secret-bearing content cannot reach a prompt without passing a human and three automated checks.

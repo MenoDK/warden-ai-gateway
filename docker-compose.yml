@@ -1,4 +1,4 @@
-name: ai-core
+name: warden-ai-gateway
 
 services:
   api:

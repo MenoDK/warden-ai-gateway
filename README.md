@@ -3,7 +3,7 @@
 > A reference architecture for putting LLMs behind a **fail-closed gateway**, grounding them with **curated RAG**,
 > keeping a **human in the loop**, and accepting **hardened webhooks** — in a small, fully tested FastAPI service.
 
-[![CI](https://github.com/MenoDK/showcase-python-ai-core/actions/workflows/ci.yml/badge.svg)](https://github.com/MenoDK/showcase-python-ai-core/actions/workflows/ci.yml)
+[![CI](https://github.com/MenoDK/warden-ai-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/MenoDK/warden-ai-gateway/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%20|%203.12%20|%203.13-blue)
 ![Typing](https://img.shields.io/badge/mypy-strict-success)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
