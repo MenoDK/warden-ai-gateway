@@ -2514,3 +2514,19 @@ svg {
     opacity: 0;
   }
 }
+
+/* ============ checkbox rows (generic form control for lab panels) ============ */
+.lab label.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-weight: 500;
+  cursor: pointer;
+}
+.lab input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-ink);
+  flex: none;
+}
