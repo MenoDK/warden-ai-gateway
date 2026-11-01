@@ -116,6 +116,10 @@ class PgVectorKnowledgeStore:
                     ),
                 )
 
+    async def clear(self) -> None:
+        async with self._pool.connection() as conn:
+            await conn.execute("TRUNCATE kb_chunks, kb_documents")
+
     async def get_document(self, document_id: str) -> Document:
         async with self._pool.connection() as conn:
             cur = await conn.execute("SELECT * FROM kb_documents WHERE id = %s", (document_id,))

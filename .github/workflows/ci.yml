@@ -74,18 +74,40 @@ jobs:
         with:
           context: .
           load: true
-          tags: ai-core:ci
+          tags: warden-ai-gateway:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Smoke test the built image
         run: |
-          docker run -d --name api -p 8000:8000 ai-core:ci
-          for i in $(seq 1 30); do
+          docker run -d --name api -p 8000:8000 warden-ai-gateway:ci
+          for _ in $(seq 1 30); do
             curl -fsS localhost:8000/health/live && exit 0
             sleep 1
           done
           docker logs api
           exit 1
+
+  e2e:
+    name: Browser tests (lab, accessibility)
+    runs-on: ubuntu-latest
+    needs: [quality, test]
+    steps:
+      - uses: actions/checkout@v4
+      # Same command a reviewer runs locally: builds the stack with the lab on and drives it with Playwright.
+      - name: make e2e
+        run: make e2e
+        env:
+          CI: "true"
+      - name: Keep the Playwright report when something failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: e2e/test-results
+          if-no-files-found: ignore
+      - name: API logs on failure
+        if: failure()
+        run: docker compose logs api
 
   secrets:
     name: Secret scan

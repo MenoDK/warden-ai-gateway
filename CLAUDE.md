@@ -16,6 +16,8 @@ de-duplicated. Python 3.11+, `mypy --strict`, pgvector, Redis, LangGraph.
 - `src/ai_core/rag/`: chunking, curation pipeline, safety filters, stores (memory and pgvector).
 - `src/ai_core/webhooks/`: signature, idempotency stores, dispatcher. `src/ai_core/api/`: thin HTTP layer.
 - `src/ai_core/container.py`: the only module that imports concrete adapters.
+- `src/ai_core/lab.py` and `api/lab.py`: lab mode, off by default and refused in production (ADR 0006).
+- `site/`: landing page and lab UI, plain JS and CSS served by the API when `SITE_DIR` is set. `e2e/`: Playwright tests.
 
 ## Rules that apply to every task
 
@@ -25,7 +27,9 @@ de-duplicated. Python 3.11+, `mypy --strict`, pgvector, Redis, LangGraph.
 3. **Secrets are redacted before embedding and storage**, and never printed in logs or error bodies.
 4. **Tests build their own credentials at run time** and use fictitious data only.
 5. **New adapters go behind a `Protocol` and are wired in `container.py` only.** See ADR 0005.
-6. **Docs are code.** A new document is added to the map in the same commit; `docsguard check` must pass.
+6. **Lab mode never reaches production.** The settings validator refuses it; do not add another way in. See ADR 0006.
+7. **The site loads nothing from another origin** and keeps inline script and style out (strict CSP); `make e2e` checks it.
+8. **Docs are code.** A new document is added to the map in the same commit; `docsguard check` must pass.
 
 Advice versus enforcement: this file is advice. If `docsguard` is installed, `.claude/settings.json` turns the key rules
 into hooks (destructive git is refused, and so are writes to secrets and keys).

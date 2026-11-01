@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 from functools import lru_cache
 
 from pydantic import Field, SecretStr, model_validator
@@ -39,6 +40,12 @@ class Settings(BaseSettings):
     database_url: str = ""  # empty -> in-memory knowledge store
     redis_url: str = ""  # empty -> in-memory idempotency store
 
+    # --- Lab (demo only) -------------------------------------------------------
+    # Adds a simulated "cloud" model, per-provider outage switches and an inbox showing exactly what
+    # left the process. Refused in production. `site_dir` serves the landing page and the lab UI.
+    lab_mode: bool = False
+    site_dir: str = ""
+
     # --- Webhooks ------------------------------------------------------------
     # Comma-separated so that secrets can be rotated without downtime
     # (first = current, others = still accepted).
@@ -50,6 +57,12 @@ class Settings(BaseSettings):
     def _refuse_insecure_production(self) -> Settings:
         if self.app_env == "production" and self.api_key.get_secret_value() == _INSECURE_DEFAULT_KEY:
             raise ValueError("API_KEY must be set to a non-default value in production")
+        if self.app_env == "production" and self.lab_mode:
+            raise ValueError("LAB_MODE exposes outage switches and a prompt inbox; it is refused in production")
+        if self.lab_mode and not self.webhook_secret_list:
+            # The lab signs events in the browser, so it needs a secret. An unset one gets a random value
+            # for this process only: nothing is ever shared, and a restart simply issues a new one.
+            self.webhook_secrets = SecretStr(secrets.token_urlsafe(24))
         return self
 
     @property

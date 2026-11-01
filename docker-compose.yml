@@ -1,16 +1,21 @@
 name: warden-ai-gateway
 
+# `make demo` starts this stack with the lab on. Plain `docker compose up` starts the API alone, as it would run
+# for real: no lab routes, no site. Nothing is published beyond loopback, so the demo key never faces your network.
 services:
   api:
     build: .
+    image: warden-ai-gateway:local
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "127.0.0.1:${API_PORT:-8000}:8000"
     env_file:
       - path: .env
         required: false
     environment:
       DATABASE_URL: postgresql://ai:${DB_PASSWORD:-ai}@db:5432/ai
       REDIS_URL: redis://redis:6379/0
+      LAB_MODE: ${LAB_MODE:-false}
+      SITE_DIR: ${SITE_DIR:-}
     depends_on:
       db:
         condition: service_healthy
@@ -27,8 +32,6 @@ services:
       POSTGRES_USER: ai
       POSTGRES_PASSWORD: ${DB_PASSWORD:-ai}
       POSTGRES_DB: ai
-    ports:
-      - "127.0.0.1:${DB_PORT:-5432}:5432" # loopback only: for the integration tests
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -40,13 +43,32 @@ services:
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--save", "", "--appendonly", "no"] # idempotency keys are disposable
-    ports:
-      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # Browser tests (`make e2e`, profile "e2e"): Playwright against the running demo, accessibility scans included.
+  # It shares the API container's network, so the page is at http://localhost:8000: a secure context, which the
+  # lab needs for WebCrypto, and no host port is opened for the tests.
+  e2e:
+    profiles: ["e2e"]
+    image: mcr.microsoft.com/playwright:v1.49.1-jammy
+    network_mode: "service:api"
+    working_dir: /e2e
+    user: "${E2E_USER:-1000:1000}"
+    environment:
+      HOME: /tmp
+      CI: ${CI:-}
+      E2E_BASE_URL: http://localhost:8000
+      E2E_API_KEY: ${API_KEY:-change-me}
+    volumes:
+      - ./e2e:/e2e
+    command: ["sh", "-c", "npm ci --no-audit --no-fund && npx tsc --noEmit && npx playwright test"]
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   db-data:

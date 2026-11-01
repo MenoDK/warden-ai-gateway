@@ -99,6 +99,10 @@ class SensitivityRouter:
     def provider_names(self) -> list[str]:
         return [p.name for p in self._providers]
 
+    def reset_breakers(self) -> None:
+        for breaker in self._breakers.values():
+            breaker.reset()
+
     def breaker_states(self) -> dict[str, BreakerState]:
         return {name: b.state for name, b in self._breakers.items()}
 

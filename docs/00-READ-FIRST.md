@@ -7,8 +7,9 @@ cheap. Updated: 2026-11-01
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | start or resume a session                          | [HANDOFF](HANDOFF.md): where we stopped, what not to do                                     |
 | need to know what is done and what is not          | [CHECKLIST](CHECKLIST.md)                                                                   |
-| ask "why is it built this way?"                    | [Decision records](adr/README.md) <!-- docsguard:count dir=docs/adr glob=0*.md expect=5 --> |
+| ask "why is it built this way?"                    | [Decision records](adr/README.md) <!-- docsguard:count dir=docs/adr glob=0*.md expect=6 --> |
 | want the architecture, API examples and how to run it | the repository [README](../README.md)                                                    |
+| change the landing page or the lab UI              | `site/` (plain JS and CSS, no build step) and [ADR 0006](adr/0006-a-lab-mode-that-cannot-reach-production.md) |
 
 ## Rules of the map
 

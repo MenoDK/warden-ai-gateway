@@ -8,8 +8,10 @@ Tool-neutral: what any engineer or coding agent needs to work here without askin
 | ---------------------------------------------------------- | ----------------------------------------------------------------- |
 | Install                                                    | `make install`                                                    |
 | Everything static (ruff, mypy --strict, unit and API tests) | `make check`                                                      |
-| Integration tests (real Postgres with pgvector, Redis)     | `docker compose up -d db redis`, then `make test-integration`     |
-| Run the whole stack                                        | `make up`                                                         |
+| Integration tests (real Postgres with pgvector, Redis)     | `make test-integration` (starts both on loopback)                 |
+| Run the whole stack with the lab on                        | `make demo` (then http://localhost:8000); `make down` to stop     |
+| Browser tests and accessibility scans                      | `make e2e` (Playwright in a container, against the real stack)    |
+| Re-record the landing page's sample output                 | `make transcripts`                                                |
 | Documentation guards                                       | `docsguard check`                                                 |
 
 ## Definition of done

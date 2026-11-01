@@ -69,6 +69,12 @@ class CircuitBreaker:
         if self._failures >= self._threshold:
             self._trip()
 
+    def reset(self) -> None:
+        """Force the breaker closed (operator action, used by the lab)."""
+        self._failures = 0
+        self._probe_in_flight = False
+        self._set(BreakerState.CLOSED)
+
     def _trip(self) -> None:
         self._opened_at = self._clock()
         self._set(BreakerState.OPEN)

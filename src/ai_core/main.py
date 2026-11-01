@@ -8,11 +8,14 @@ import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from ai_core import __version__
+from ai_core.api.lab import build_lab_router
 from ai_core.api.routes import router
 from ai_core.config import Settings, get_settings
 from ai_core.container import Container, build_container
@@ -22,6 +25,12 @@ from ai_core.observability.logging import configure_logging, request_id_var
 
 log = logging.getLogger("ai_core")
 _SAFE_REQUEST_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+# The generated API docs load their UI from a CDN, so they are the one place this policy does not apply.
+_API_DOC_PATHS = ("/docs", "/redoc", "/openapi.json")
+_CSP = (
+    "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; "
+    "base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+)
 
 
 def create_app(settings: Settings | None = None, *, container: Container | None = None) -> FastAPI:
@@ -37,9 +46,11 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
         finally:
             await container.shutdown()
 
-    app = FastAPI(title="AI Core", version=__version__, lifespan=lifespan)
+    app = FastAPI(title="Warden AI Gateway", version=__version__, lifespan=lifespan)
     app.state.container = container
     app.include_router(router)
+    if settings.lab_mode:
+        app.include_router(build_lab_router())
 
     @app.middleware("http")
     async def observe(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
@@ -54,6 +65,8 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
             response.headers["x-request-id"] = rid
             response.headers["x-content-type-options"] = "nosniff"
             response.headers["cache-control"] = "no-store"
+            if not request.url.path.startswith(_API_DOC_PATHS):
+                response.headers["content-security-policy"] = _CSP
             return response
         finally:
             elapsed = time.perf_counter() - started
@@ -110,6 +123,13 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
             {"error": {"code": "internal_error", "message": "internal error", "request_id": request_id_var.get()}},
             status_code=500,
         )
+
+    if settings.site_dir:
+        site = Path(settings.site_dir)
+        if not site.is_dir():
+            raise ValueError(f"SITE_DIR is not a directory: {site}")
+        # Mounted last, so every API route above wins over a file of the same name.
+        app.mount("/", StaticFiles(directory=site, html=True), name="site")
 
     return app
 

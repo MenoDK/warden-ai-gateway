@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ai-core"
+name = "warden-ai-gateway"
 version = "0.1.0"
-description = "Reference architecture for a sensitivity-aware LLM gateway, curated RAG, human-in-the-loop workflows and hardened webhooks."
+description = "A sensitivity-aware LLM gateway with curated RAG, human review and hardened webhooks."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -54,6 +54,7 @@ ignore = ["S101"]  # asserts are fine in tests; app code does not rely on them
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S105", "S106", "S311"]
+"scripts/*" = ["S105"]  # demo values for the recorded session, not credentials
 
 [tool.mypy]
 python_version = "3.11"

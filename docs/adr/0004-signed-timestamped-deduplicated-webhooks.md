@@ -28,6 +28,9 @@ it already handled is not handled twice. It must do that without telling an atta
 - **Distinct error messages per reason.** Useful to the sender while debugging, and equally useful to an attacker
   learning which check to defeat. The reasons live in metrics instead.
 - **Release the claim on every error.** A malformed event would be redelivered forever.
+- **Reject a new event whose content we already hold (409).** Senders retry anything that is not 2xx, so a fresh event id
+  carrying known content would be retried for ever. Ingestion is idempotent by content: the event is acknowledged, and
+  nothing is stored twice (`tests/test_webhooks.py`).
 
 ## Consequences
 - (+) Replay, tampering and double delivery each have a named defence and a test (`tests/test_webhooks.py`, and the

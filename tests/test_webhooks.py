@@ -142,6 +142,16 @@ def test_payload_must_have_id_and_type(client: TestClient) -> None:
     assert post(client, {"id": 5, "type": "ping"}).status_code == 400
 
 
+def test_a_new_event_carrying_content_we_already_hold_is_acknowledged_not_rejected(client: TestClient) -> None:
+    # A sender treats any non-2xx as "try again", so a 409 here would be retried for ever. The content is already
+    # in the knowledge base (or its quarantine): the effect the sender asked for has happened.
+    first = {"id": "evt_a", "type": "document.ingested", "source": "docs/same.md", "text": CORPUS}
+    second = {"id": "evt_b", "type": "document.ingested", "source": "docs/same.md", "text": CORPUS}
+    assert post(client, first).json() == {"status": "accepted"}
+    assert post(client, second).json() == {"status": "accepted"}
+    assert len(client.get("/v1/rag/documents", headers=AUTH).json()) == 1
+
+
 def test_webhook_ingestion_lands_in_quarantine_not_in_the_knowledge(client: TestClient) -> None:
     event = {"id": "evt_doc", "type": "document.ingested", "source": "docs/from-webhook.md", "text": CORPUS}
     assert post(client, event).json() == {"status": "accepted"}

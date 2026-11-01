@@ -6,9 +6,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from ai_core.config import Settings
+from ai_core.errors import Conflict
 from ai_core.gateway.provider import LLMProvider, Locality
 from ai_core.gateway.providers import DemoLocalProvider, OpenAICompatibleProvider
 from ai_core.gateway.router import SensitivityRouter
+from ai_core.lab import LabControl, wrap_for_lab
 from ai_core.observability.metrics import Metrics
 from ai_core.privacy.masker import PIIMasker
 from ai_core.rag.embeddings import HashingEmbedder
@@ -36,6 +38,7 @@ class Container:
     idempotency: IdempotencyStore
     dispatcher: EventDispatcher
     providers: list[LLMProvider]
+    lab: LabControl | None = None
 
     async def startup(self) -> None:
         await self.store.init()
@@ -87,6 +90,9 @@ def build_container(
     metrics = Metrics()
     masker = PIIMasker()
     providers = default_providers(settings) if providers is None else providers
+    lab: LabControl | None = None
+    if settings.lab_mode:
+        providers, lab = wrap_for_lab(providers)  # outage switches + a simulated third-party model
     router = SensitivityRouter(
         providers,
         masker,
@@ -119,7 +125,12 @@ def build_container(
 
     async def on_document_ingested(payload: dict[str, Any]) -> None:
         # Quarantined like any other ingestion: a webhook can never publish knowledge directly.
-        await pipeline.ingest(str(payload["source"]), str(payload["text"]), {"via": "webhook"})
+        try:
+            await pipeline.ingest(str(payload["source"]), str(payload["text"]), {"via": "webhook"})
+        except Conflict:
+            # The same content is already held. Senders retry anything that is not 2xx, so acknowledge it:
+            # ingesting is idempotent by content, and the effect they asked for has happened.
+            return
 
     dispatcher.register("document.ingested", on_document_ingested)
 
@@ -134,4 +145,5 @@ def build_container(
         idempotency=idempotency,
         dispatcher=dispatcher,
         providers=providers,
+        lab=lab,
     )

@@ -1,56 +1,69 @@
-# AI Core
+# warden-ai-gateway
 
-> A reference architecture for putting LLMs behind a **fail-closed gateway**, grounding them with **curated RAG**,
-> keeping a **human in the loop**, and accepting **hardened webhooks** — in a small, fully tested FastAPI service.
+> An AI gateway that knows when to say no. Requests are routed by what they **contain**, knowledge enters the index only
+> after a **person approves** it, and every webhook is **signed, timestamped and counted once**.
 
 [![CI](https://github.com/MenoDK/warden-ai-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/MenoDK/warden-ai-gateway/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%20|%203.12%20|%203.13-blue)
 ![Typing](https://img.shields.io/badge/mypy-strict-success)
+![Tests](https://img.shields.io/badge/tests-167%20unit%20·%203%20integration%20·%2019%20browser-success)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-**What it is.** The parts of an AI backend that are easy to get *almost* right and expensive to get wrong:
-deciding which model may see which data, refusing to answer without evidence, treating documents as untrusted
-input, and not processing the same webhook twice.
+![The landing page](docs/img/landing.png)
 
-**What it is not.** A chatbot, a prompt collection or a production platform. There is a deterministic *demo*
-provider so everything runs offline; bring your own model (any OpenAI-compatible endpoint, e.g. Ollama).
-See [Limitations](#limitations-and-what-i-deliberately-left-out).
+## Run it in a minute
 
----
-
-## Quick start
+You need **Docker** (Compose v2) and `make`. No API keys and no accounts; the service makes no outbound calls.
 
 ```bash
-cp .env.example .env          # all values are placeholders; set API_KEY
-docker compose up --build     # api + Postgres/pgvector + Redis, all with health checks
+git clone https://github.com/MenoDK/warden-ai-gateway.git
+cd warden-ai-gateway
+make demo            # builds the image, starts API + PostgreSQL (pgvector) + Redis, waits until they are healthy
 ```
+
+Open **http://localhost:8000**. The page explains the project and links to the **lab**, where every hard part below can
+be tried in a browser. The lab's sign-in pre-fills the development key (`change-me`).
+
+Port 8000 busy? `API_PORT=8080 make demo`. Stop with `make down`; `make reset` also deletes the database volume.
+No `make` (Windows)? `LAB_MODE=true SITE_DIR=/app/site docker compose up --build --wait --detach` does the same.
+The stack is published on loopback only, so the demo key is never reachable from your network.
+
+![The lab: personal data refused, then sent as a placeholder](docs/img/lab-gateway.png)
+
+*Above: the local model is switched off. Personal data is refused instead of falling back to the cloud. Marked as
+internal, it may leave, but the simulated third party's inbox shows `<EMAIL_1>`, never the address.*
+
+## What to try
+
+Each row is a claim that is easy to make and hard to get right. The lab has a **Start over** button between attempts.
+
+| Try to… | In the lab | You should see |
+|---|---|---|
+| **Make it leak** | Gateway → *Contains an e-mail* → **Switch off** `demo-local` → Send. Then set sensitivity to `internal`, Send, and **Refresh** the cloud inbox. | The first request is **refused (503)**, not rerouted. The second is answered, and the inbox holds `<EMAIL_1>`: the address never crossed. |
+| **Poison the index** | Knowledge → *Poisoned handbook* → Ingest → Approve → Ask *How long do refunds take?* | `1 chunk(s) excluded` (offsets only, never the text). The answer cites the clean part. Asking before approving finds nothing from it. |
+| **Replay a webhook** | Webhooks → *Send valid*, then *Send again (same id)* | `202 accepted`, then `200 duplicate`. Counted once. |
+| **Tamper with one** | *Tamper with the body*, *Back-date the timestamp*, *Wrong secret*, *No signature* | Four `401`s with the **same** generic message, so the response is not an oracle for which check failed. |
+| **Break the breaker** | Gateway → switch both providers off → Send three times | The breaker opens and the attempts stop reaching the provider. *Reset breakers* closes it. |
+| **Pause for a human** | Review (needs an approved document) → *Start the review* | The question is masked, the draft **waits**, and nothing is released until a person approves or edits it. |
+
+![Quarantine and curation](docs/img/lab-knowledge.png)
+
+Prefer the terminal? Everything is also an HTTP API. `/openapi.json` is the schema; `/docs` is FastAPI's Swagger UI,
+which your browser loads from a CDN, so it needs internet (the landing page and the lab do not):
 
 ```bash
 API=http://localhost:8000; KEY='x-api-key: change-me'
-
-# 1. ingest -> lands in QUARANTINE (not retrievable yet)
 curl -s $API/v1/rag/documents -H "$KEY" -H 'content-type: application/json' \
   -d '{"source":"docs/security.md","text":"Rotating credentials every 90 days limits the blast radius of a leaked key."}'
-
-# 2. a curator approves it
-curl -s -X POST $API/v1/rag/documents/<id>/approve -H "$KEY"
-
-# 3. ask: answered with provenance (document, chunk, character span, content hash, score)
-curl -s $API/v1/rag/query -H "$KEY" -H 'content-type: application/json' \
-  -d '{"question":"Why rotate credentials every 90 days?"}'
-
-# 4. personal data is detected and routed to a LOCAL provider only
-curl -s $API/v1/completions -H "$KEY" -H 'content-type: application/json' \
-  -d '{"prompt":"Summarise the ticket from ana@example.com"}'
+# -> quarantined. Approve it:  curl -s -X POST $API/v1/rag/documents/<id>/approve -H "$KEY"
+curl -s $API/v1/rag/query -H "$KEY" -H 'content-type: application/json' -d '{"question":"Why rotate credentials every 90 days?"}'
 ```
 
-Interactive docs: `http://localhost:8000/docs` · metrics: `/metrics` · readiness: `/health/ready`.
-
 <details>
-<summary>Sending a signed webhook</summary>
+<summary>Sending a signed webhook by hand</summary>
 
 ```bash
-SECRET=whsec_example_current            # from WEBHOOK_SECRETS in .env
+SECRET=$(curl -s $API/v1/lab/state -H "$KEY" | python3 -c 'import sys,json; print(json.load(sys.stdin)["webhook_secret"])')
 BODY='{"id":"evt_1","type":"ping"}'; TS=$(date +%s)
 SIG=$(printf '%s.%s' "$TS" "$BODY" | openssl dgst -sha256 -hmac "$SECRET" -hex | sed 's/^.* //')
 curl -i $API/v1/webhooks/partner -H "x-signature: t=$TS,v1=$SIG" -H 'content-type: application/json' -d "$BODY"
@@ -58,7 +71,23 @@ curl -i $API/v1/webhooks/partner -H "x-signature: t=$TS,v1=$SIG" -H 'content-typ
 ```
 </details>
 
-Local development without Docker: `make install && make check` (lint + `mypy --strict` + tests).
+### Run the checks
+
+```bash
+make install && make check     # ruff, mypy --strict, 167 unit and API tests (no services needed)
+make test-integration          # starts PostgreSQL+pgvector and Redis on loopback, runs the 3 integration tests
+make e2e                       # 19 Playwright tests, accessibility scans of every page in both themes, against the real stack
+```
+
+## What it is
+
+The parts of an AI backend that are easy to get *almost* right and expensive to get wrong: deciding which model may see
+which data, refusing to answer without evidence, treating documents as untrusted input, and not processing the same
+webhook twice. A small, fully tested FastAPI service plus a landing page and a lab built to let you try to break it.
+
+**What it is not:** a chatbot, a prompt collection or a production platform. A deterministic demo provider makes it run
+offline; bring your own model (any OpenAI-compatible endpoint, e.g. Ollama). See
+[Limitations](#limitations-and-what-i-deliberately-left-out).
 
 ---
 
@@ -68,7 +97,7 @@ Local development without Docker: `make install && make check` (lint + `mypy --s
 flowchart LR
     client([Client]) -->|X-API-Key| api
 
-    subgraph svc [AI Core service]
+    subgraph svc [Warden service]
         api[FastAPI<br/>thin handlers]
         api --> gw[Sensitivity Router]
         api --> rag[RAG Pipeline]
@@ -179,13 +208,18 @@ stateDiagram-v2
 | Webhooks | HMAC-SHA256, anti-replay window, idempotency (memory & **Redis**), secret rotation, constant-time compare | `test_webhooks.py`, `test_integration_stores.py` |
 | API | FastAPI, API-key auth (constant-time), request ids, JSON logs, security headers, uniform error envelope | `test_api.py` |
 | Observability | Prometheus metrics (HTTP, provider attempts, breaker state, webhook outcomes), liveness/readiness | `test_api.py` |
-| Quality gates | `ruff`, `mypy --strict`, `pytest` (140 tests: unit, API, 2 integration against real Redis + pgvector) | CI |
-| Delivery | Multi-stage Dockerfile (non-root, healthcheck), Compose with health-gated startup, read-only rootfs, dropped capabilities | CI `docker` job |
+| Quality gates | `ruff`, `mypy --strict`, `pytest` (167 unit and API tests, 3 integration against real Redis + pgvector), 19 Playwright tests with axe accessibility scans | CI |
+| Delivery | Multi-stage Dockerfile (non-root, healthcheck), Compose with health-gated startup, read-only rootfs, dropped capabilities, published on loopback only | CI `docker` and `e2e` jobs |
+| Front end | A landing page and a lab UI in plain JS and CSS (no build step, no framework, nothing from another origin), strict CSP, light and dark themes, reduced-motion support | `e2e/` (axe: WCAG 2.1 A/AA in both themes) |
+| Lab mode | Outage switches and a recorded view of what a third party received, refused in production | [ADR-0006](docs/adr/0006-a-lab-mode-that-cannot-reach-production.md), `test_lab.py` |
 
 ### Bugs the test-suite caught while building this (kept as regression tests)
 - Chunker silently **dropped 90 % of a document** containing one very long token (word-boundary snapping ran past the window).
 - A webhook with a malformed payload returned **500 instead of 400** (base error class carried the wrong status).
 - Unit tests picked up `DATABASE_URL`/`REDIS_URL` from the CI environment and started using real stores.
+- A webhook with a **new event id but content we already held answered 409**, which a sender retries for ever. Found by driving the lab in a browser; now acknowledged and tested.
+- The first embedder hashed with a sign, so an **irrelevant question out-scored a relevant one**. It is unsigned now, with stop words and light stemming, and a test measures the gap between relevant and irrelevant scores.
+- The lab signed a webhook with an empty secret when clicked before the page had finished loading; found only against the real stack, whose responses are slower than memory.
 
 ---
 
@@ -193,18 +227,23 @@ stateDiagram-v2
 
 ```
 src/ai_core/
-├── api/            # thin HTTP layer: routes, schemas, auth dependency
+├── api/            # thin HTTP layer: routes, schemas, auth dependency (+ lab routes)
 ├── gateway/        # provider port, sensitivity router, circuit breaker, JSON repair, adapters
 ├── privacy/        # PII masker (reversible pseudonymisation)
 ├── rag/            # chunking, embeddings, curation pipeline, safety, stores (memory + pgvector)
 ├── workflows/      # LangGraph human-in-the-loop review
 ├── webhooks/       # signature, idempotency stores, dispatcher
 ├── observability/  # JSON logging, Prometheus metrics
+├── lab.py          # lab mode: outage switches, simulated cloud model that records what it receives
 ├── container.py    # composition root
 ├── config.py       # typed settings
 └── main.py         # app factory, middleware, error handlers
-tests/              # 140 tests
-docs/adr/           # architecture decision records
+tests/              # 167 unit and API tests + 3 integration
+site/               # landing page and lab UI (plain JS and CSS, served by the API when SITE_DIR is set)
+e2e/                # Playwright + axe, run by `make e2e` against the real stack
+scripts/            # record_transcripts.py: the landing page's sample output comes from the running code
+docs/               # map (00-READ-FIRST), checklist, handoff and the decision records in adr/
+CLAUDE.md           # entry point for an AI coding session (AGENTS.md is the tool-neutral contract)
 ```
 
 ## Configuration
@@ -215,14 +254,26 @@ Everything is environment-driven — see [`.env.example`](.env.example) (all val
 
 ## Limitations and what I deliberately left out
 
-- **The demo model is not an LLM.** It quotes the top evidence so the plumbing is observable offline. Quality of answers depends on the model you plug in.
-- **`HashingEmbedder` is lexical, not semantic.** It is deterministic and dependency-free, which is what makes the tests exact. Implement the two-method `Embedder` protocol to use sentence-transformers or a hosted model (the vector dimension is configurable).
+- **The demo models are not LLMs.** `demo-local` quotes the evidence and `demo-cloud` echoes what it was sent, so the plumbing and the trust boundary are observable offline. Answer quality depends on the model you plug in.
+- **Lab mode shows the webhook secret to whoever holds the API key.** That is the point of a local demo and the reason it is refused when `APP_ENV=production`.
+- **`HashingEmbedder` is lexical, not semantic.** It matches words (with stop words and light stemming), not meaning, so a paraphrase can miss. It is deterministic and dependency-free, which is what makes the tests exact. Implement the two-method `Embedder` protocol to use sentence-transformers or a hosted model (the vector dimension is configurable).
 - **The injection filter is a heuristic layer, not a guarantee.** It is deliberately narrow, and it is one of three independent defences.
 - **Review checkpoints use `MemorySaver`** (in-process). Pass a Postgres checkpointer for durability; the graph state is plain JSON for that reason.
 - **Circuit-breaker state is per process.** Fine for one replica; share it (e.g. Redis) when scaling out.
-- **One API key, no tenants.** Multi-tenancy, JWT and object-level authorisation live in the sibling project, not here.
+- **One API key, no tenants.** Multi-tenancy, JWT and object-level authorisation live in [`bulkhead-saas`](https://github.com/MenoDK/bulkhead-saas), not here. The lab's sign-in is therefore honest: it asks for the API key, it does not pretend to be an account system.
 - **No queue/worker.** Webhook handlers run inline; an outbox + worker would be the next step if handlers become slow.
 - `/metrics` is unauthenticated by design (scraped inside the network) — restrict it at the proxy.
+
+## Working with an AI coding session
+
+The repository carries the documentation system a session needs to be cheap and controllable: a short `CLAUDE.md`, a
+tool-neutral `AGENTS.md`, a docs **map** (`docs/00-READ-FIRST.md`) that says which document to open when, a handoff that
+lets a fresh session resume from disk, and decision records with their rejected alternatives. It is checked by
+[`docsguard`](https://github.com/MenoDK/docsguard) (`docsguard check`): the map must be complete, the ADRs well formed,
+the handoff must carry a measured suite state. Running that check on this repository's earlier records is what found that
+the ADRs lacked a status line and a rejected-alternatives section; they were restructured.
+`.claude/settings.json` wires `docsguard`'s hooks (destructive git and writes to secrets are refused) and does nothing
+when it is not installed.
 
 ## License
 

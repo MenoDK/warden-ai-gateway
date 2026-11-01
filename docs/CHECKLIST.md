@@ -10,8 +10,10 @@ _What_ and _when_. The _how_ lives in the code and tests, the _why_ in the [ADRs
 | 4   | Signed, timestamped, de-duplicated webhooks                        | done    | [ADR 0004](adr/0004-signed-timestamped-deduplicated-webhooks.md), `tests/test_webhooks.py` |
 | 5   | Human-in-the-loop review workflow (LangGraph, edit before approve) | done    | `tests/test_review_workflow.py`                                                       |
 | 6   | Containers and health-gated compose                                | done    | `Dockerfile`, `docker-compose.yml`                                                    |
-| 7   | CI workflow                                                        | written | `.github/workflows/ci.yml`: not yet run on GitHub                                     |
-| 8   | Embedder backed by a semantic model                                | todo    | the two-method `Embedder` protocol is the seam; `HashingEmbedder` is lexical          |
-| 9   | Durable review checkpoints and a worker for slow webhook handlers  | todo    | README "Limitations"                                                                  |
+| 7   | Lab mode, landing page and lab UI, refused in production           | done    | [ADR 0006](adr/0006-a-lab-mode-that-cannot-reach-production.md), `tests/test_lab.py`, `site/` |
+| 8   | Browser tests with accessibility scans, run against the real stack | done    | `e2e/`, `make e2e`                                                                    |
+| 9   | CI workflow                                                        | written | `.github/workflows/ci.yml`: not yet run on GitHub                                     |
+| 10  | Embedder backed by a semantic model                                | todo    | the two-method `Embedder` protocol is the seam; `HashingEmbedder` is lexical          |
+| 11  | Durable review checkpoints and a worker for slow webhook handlers  | todo    | README "Limitations"                                                                  |
 
 Status is one of `todo`, `doing`, `done`, `written` (exists, not yet exercised where it will run), `dropped`.

@@ -8,6 +8,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 WORKDIR /build
 COPY pyproject.toml README.md ./
 COPY src ./src
+# The cache mount keeps wheels out of the image layer, which is the point of --no-cache-dir.
+# hadolint ignore=DL3042
 RUN --mount=type=cache,target=/root/.cache/pip pip install .
 
 # ---- runtime: no compiler, no pip cache, no root ---------------------------------------------
@@ -17,6 +19,8 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1
 RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin app
 COPY --from=builder /opt/venv /opt/venv
+# The landing page and the lab UI: plain files, served by the API only when SITE_DIR points at them.
+COPY --chown=root:root --chmod=0755 site /app/site
 USER 10001
 EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \

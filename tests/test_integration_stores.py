@@ -10,6 +10,7 @@ import asyncio
 import os
 import uuid
 
+import psycopg
 import pytest
 
 from ai_core.errors import Conflict
@@ -77,3 +78,25 @@ async def test_pgvector_store_enforces_curation_and_ranks_by_similarity() -> Non
         async with store._pool.connection() as conn:
             await conn.execute("DELETE FROM kb_documents WHERE source LIKE %s", (f"docs/{suffix}-%",))
         await store.close()
+
+
+@pytest.mark.skipif(not DATABASE_URL, reason="DATABASE_URL not set")
+async def test_clear_empties_the_store_without_touching_anything_outside_its_own_schema() -> None:
+    """``clear`` is a TRUNCATE, so it runs in a throwaway schema: whoever points this at a database keeps their rows."""
+    schema = f"clear_test_{uuid.uuid4().hex[:10]}"
+    async with await psycopg.AsyncConnection.connect(DATABASE_URL, autocommit=True) as admin:
+        await admin.execute(f"CREATE SCHEMA {schema}")
+    separator = "&" if "?" in DATABASE_URL else "?"
+    store = PgVectorKnowledgeStore(f"{DATABASE_URL}{separator}options=-csearch_path%3D{schema},public", dim=32)
+    try:
+        await store.init()
+        doc = Document(id=uuid.uuid4().hex, source="docs/x.md", sha256="a" * 64)
+        await store.add_document(doc)
+        await store.add_chunks(doc.id, chunk_text("Refunds take fourteen days."), [[0.1] * 32])
+        await store.clear()
+        assert await store.list_documents() == []
+        await store.add_document(Document(id=uuid.uuid4().hex, source="docs/x.md", sha256="a" * 64))
+    finally:
+        await store.close()
+        async with await psycopg.AsyncConnection.connect(DATABASE_URL, autocommit=True) as admin:
+            await admin.execute(f"DROP SCHEMA {schema} CASCADE")

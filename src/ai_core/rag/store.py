@@ -29,6 +29,9 @@ class KnowledgeStore(Protocol):
     async def set_status(self, document_id: str, status: DocumentStatus) -> Document: ...
     async def search(self, embedding: list[float], k: int) -> list[SearchHit]: ...
 
+    async def clear(self) -> None:
+        """Remove every document and chunk. Only the lab's "start over" calls this."""
+
 
 def _dot(a: list[float], b: list[float]) -> float:
     return sum(x * y for x, y in zip(a, b, strict=True))
@@ -58,6 +61,10 @@ class InMemoryKnowledgeStore:
         if document_id not in self._docs:
             raise NotFound("document not found")
         self._chunks[document_id] = list(zip(chunks, embeddings, strict=True))
+
+    async def clear(self) -> None:
+        self._docs.clear()
+        self._chunks.clear()
 
     async def get_document(self, document_id: str) -> Document:
         try:
