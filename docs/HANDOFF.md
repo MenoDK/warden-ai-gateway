@@ -31,6 +31,7 @@ None.
 - Do not allow `LAB_MODE` with `APP_ENV=production`, and do not mount `/v1/lab` conditionally on anything else: [ADR 0006](adr/0006-a-lab-mode-that-cannot-reach-production.md).
 - Do not edit `site/transcripts.js` by hand: `make transcripts` records it from the running code, and a test compares them.
 - Do not add a script, font or stylesheet from another origin to `site/`; the Content Security Policy and the e2e suite refuse it.
+- Do not hand-edit one language table to "fix" a string and leave the others: `site/i18n/<code>.js` mirrors `content.js` key for key (English is the source and the fallback), and `e2e/tests/i18n.spec.ts` reads the tables. Strings that quote the lab's English buttons stay English on purpose.
 
 ## 6. Decisions
 
@@ -47,9 +48,10 @@ None.
 - A headless browser reached over a container hostname is not a secure context, so WebCrypto vanished; the e2e container
   now shares the API's network and uses `localhost`.
 - Clicking "Send valid" before the lab secret arrived signed with nothing; the lab now waits for it.
+- With `?lang=` in the address the saved language lost after a reload (the address outranks storage); found by a test that switched language on the lab page. `switchLanguage` now rewrites the parameter.
 
 ## 8. Suite state
 
 Measured on 2026-11-01: 167 unit and API tests, 3 integration tests against real Postgres with pgvector and Redis,
-19 browser tests (`make e2e`, against the compose stack, with axe scans of the landing page and every lab tab in both
+41 browser tests (`make e2e`, against the compose stack, with axe scans of the landing page and every lab tab in both
 themes), `ruff` clean, `mypy --strict` clean over 38 source files.

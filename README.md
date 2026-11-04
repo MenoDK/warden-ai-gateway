@@ -6,10 +6,12 @@
 [![CI](https://github.com/MenoDK/warden-ai-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/MenoDK/warden-ai-gateway/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%20|%203.12%20|%203.13-blue)
 ![Typing](https://img.shields.io/badge/mypy-strict-success)
-![Tests](https://img.shields.io/badge/tests-167%20unit%20·%203%20integration%20·%2019%20browser-success)
+![Tests](https://img.shields.io/badge/tests-167%20unit%20·%203%20integration%20·%2041%20browser-success)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 ![The landing page](docs/img/landing.png)
+
+The landing page and the sign-in are available in **14 languages** (English, 中文, हिन्दी, Español, Français, العربية, বাংলা, Português, Русский, اردو, Bahasa Indonesia, Deutsch, 日本語, 한국어), including right-to-left layouts: open `/?lang=ja` or use the selector in the header. The lab body, the decision records and this README stay in English; the translations were written for this project and a native review is welcome.
 
 ## Run it in a minute
 
@@ -76,7 +78,7 @@ curl -i $API/v1/webhooks/partner -H "x-signature: t=$TS,v1=$SIG" -H 'content-typ
 ```bash
 make install && make check     # ruff, mypy --strict, 167 unit and API tests (no services needed)
 make test-integration          # starts PostgreSQL+pgvector and Redis on loopback, runs the 3 integration tests
-make e2e                       # 19 Playwright tests, accessibility scans of every page in both themes, against the real stack
+make e2e                       # 41 Playwright tests, accessibility scans of every page in both themes and in right-to-left, against the real stack
 ```
 
 ## What it is
@@ -208,9 +210,10 @@ stateDiagram-v2
 | Webhooks | HMAC-SHA256, anti-replay window, idempotency (memory & **Redis**), secret rotation, constant-time compare | `test_webhooks.py`, `test_integration_stores.py` |
 | API | FastAPI, API-key auth (constant-time), request ids, JSON logs, security headers, uniform error envelope | `test_api.py` |
 | Observability | Prometheus metrics (HTTP, provider attempts, breaker state, webhook outcomes), liveness/readiness | `test_api.py` |
-| Quality gates | `ruff`, `mypy --strict`, `pytest` (167 unit and API tests, 3 integration against real Redis + pgvector), 19 Playwright tests with axe accessibility scans | CI |
+| Quality gates | `ruff`, `mypy --strict`, `pytest` (167 unit and API tests, 3 integration against real Redis + pgvector), 41 Playwright tests with axe accessibility scans | CI |
 | Delivery | Multi-stage Dockerfile (non-root, healthcheck), Compose with health-gated startup, read-only rootfs, dropped capabilities, published on loopback only | CI `docker` and `e2e` jobs |
 | Front end | A landing page and a lab UI in plain JS and CSS (no build step, no framework, nothing from another origin), strict CSP, light and dark themes, reduced-motion support | `e2e/` (axe: WCAG 2.1 A/AA in both themes) |
+| Internationalisation | The landing page and sign-in in 14 languages (two right-to-left) from per-language tables with English fallback; logical CSS properties, mirrored icons, `lang`/`dir` set on the document; browser tests read each table and check the headline, direction, phone overflow and accessibility | `site/i18n/`, `e2e/tests/i18n.spec.ts` |
 | Lab mode | Outage switches and a recorded view of what a third party received, refused in production | [ADR-0006](docs/adr/0006-a-lab-mode-that-cannot-reach-production.md), `test_lab.py` |
 
 ### Bugs the test-suite caught while building this (kept as regression tests)
