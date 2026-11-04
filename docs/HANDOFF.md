@@ -49,9 +49,10 @@ None.
   now shares the API's network and uses `localhost`.
 - Clicking "Send valid" before the lab secret arrived signed with nothing; the lab now waits for it.
 - With `?lang=` in the address the saved language lost after a reload (the address outranks storage); found by a test that switched language on the lab page. `switchLanguage` now rewrites the parameter.
+- Right-to-left: SVG text anchored at its start ran off the artwork card when the page direction leaked into it; the artwork, recorded output and commands are forced left-to-right and a test measures the labels.
 
 ## 8. Suite state
 
 Measured on 2026-11-01: 167 unit and API tests, 3 integration tests against real Postgres with pgvector and Redis,
-41 browser tests (`make e2e`, against the compose stack, with axe scans of the landing page and every lab tab in both
+43 browser tests (`make e2e`, against the compose stack, with axe scans of the landing page and every lab tab in both
 themes), `ruff` clean, `mypy --strict` clean over 38 source files.
