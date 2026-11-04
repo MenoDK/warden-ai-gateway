@@ -24,5 +24,5 @@ COPY --chown=root:root --chmod=0755 site /app/site
 USER 10001
 EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
-  CMD python -c "import sys, urllib.request as u; sys.exit(0 if u.urlopen('http://127.0.0.1:8000/health/live', timeout=2).status == 200 else 1)"
+  CMD ["python", "-c", "import sys, urllib.request as u; sys.exit(0 if u.urlopen('http://127.0.0.1:8000/health/live', timeout=2).status == 200 else 1)"]
 CMD ["uvicorn", "ai_core.main:app_factory", "--factory", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
