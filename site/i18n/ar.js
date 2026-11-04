@@ -1,4 +1,4 @@
-/* العربية. نصوص فقط: المفاتيح تتبع بنية content.js، وما يُترك يظهر بالإنجليزية. */
+/* Arabic overlay. Text only: the keys mirror the shape of content.js, and anything missing falls back to English. */
 (window.SITE_I18N ||= {}).ar = {
   title: 'warden-ai-gateway · بوابة ذكاء اصطناعي تعرف متى تقول لا',
   loading: {

@@ -1,4 +1,4 @@
-/* বাংলা। শুধু লেখা: কী-গুলো content.js-এর কাঠামো অনুসরণ করে, যা বাদ পড়ে তা ইংরেজিতে দেখায়। */
+/* Bengali overlay. Text only: the keys mirror the shape of content.js, and anything missing falls back to English. */
 (window.SITE_I18N ||= {}).bn = {
   title: 'warden-ai-gateway · এমন এক AI গেটওয়ে যে জানে কখন "না" বলতে হয়',
   loading: {

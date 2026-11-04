@@ -1,4 +1,4 @@
-/* اردو۔ صرف متن: کلیدیں content.js کی ساخت کی پیروی کرتی ہیں، اور جو رہ جائے وہ انگریزی میں نظر آتا ہے۔ */
+/* Urdu overlay. Text only: the keys mirror the shape of content.js, and anything missing falls back to English. */
 (window.SITE_I18N ||= {}).ur = {
   title: 'warden-ai-gateway · ایسا AI گیٹ وے جو جانتا ہے کہ کب "نہیں" کہنا ہے',
   loading: {

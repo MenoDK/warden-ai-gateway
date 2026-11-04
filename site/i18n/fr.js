@@ -1,4 +1,4 @@
-/* Français. Texte uniquement : les clés suivent la forme de content.js, et ce qui manque s'affiche en anglais. */
+/* French overlay. Text only: the keys mirror the shape of content.js, and anything missing falls back to English. */
 (window.SITE_I18N ||= {}).fr = {
   title: 'warden-ai-gateway · une passerelle d’IA qui sait dire non',
   loading: {

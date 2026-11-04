@@ -1,4 +1,4 @@
-/* Deutsch. Nur Text: Die Schlüssel folgen der Form von content.js, was fehlt, erscheint auf Englisch. */
+/* German overlay. Text only: the keys mirror the shape of content.js, and anything missing falls back to English. */
 (window.SITE_I18N ||= {}).de = {
   title: 'warden-ai-gateway · ein KI-Gateway, das Nein sagen kann',
   loading: {
